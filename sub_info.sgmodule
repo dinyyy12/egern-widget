@@ -44,7 +44,7 @@ compat_arguments_desc: |
 scriptings:
   - generic:
       name: sub_info
-      script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/main/sub_info.js?v=4
+      script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/main/sub_info.js?v=5
       timeout: 20
 widgets:
   - name: 机场订阅信息
