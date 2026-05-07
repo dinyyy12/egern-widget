@@ -1,5 +1,5 @@
 /**
- * 📌 Egern 流量监控小组件 (暗黑渐变 + 智能单位与时间版)
+ * 📌 Egern 流量监控小组件 (极限防折行版)
  */
 export default async function (ctx) {
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
@@ -54,7 +54,8 @@ export default async function (ctx) {
       const ratio = total > 0 ? Math.min(used / total, 1) : 0;
       
       const expireTime = parseObj.expire ? new Date(parseObj.expire > 1e12 ? parseObj.expire : parseObj.expire * 1000) : null;
-      const expireStr = expireTime ? `${expireTime.getFullYear()}-${String(expireTime.getMonth()+1).padStart(2, '0')}-${String(expireTime.getDate()).padStart(2, '0')}` : "无限期";
+      // ✨ 优化：缩减年份为两位数，并将 - 换成 /，进一步节省空间 (例如 24/11/05)
+      const expireStr = expireTime ? `${String(expireTime.getFullYear()).slice(-2)}/${String(expireTime.getMonth()+1).padStart(2, '0')}/${String(expireTime.getDate()).padStart(2, '0')}` : "无限期";
 
       info = { used, total, ratio, percent: (ratio * 100).toFixed(1) + "%", expire: expireStr };
       isOk = true;
@@ -65,19 +66,16 @@ export default async function (ctx) {
     // 拦截异常
   }
 
-  // ✨ 核心修改 1：智能容量换算与 2 位小数格式化
+  // ✨ 优化：取消了数字和单位之间的空格，极致压缩空间 (例如 1.25GB)
   const fmtSize = (bytes) => {
-    if (!bytes) return "0.00 GB";
+    if (!bytes) return "0.00GB";
     const gb = bytes / (1024 ** 3);
     if (gb >= 1024) {
-      // 超过或等于 1024 GB (1 TB) 时，用 TB 单位表示
-      return (gb / 1024).toFixed(2) + " TB";
+      return (gb / 1024).toFixed(2) + "TB";
     }
-    // 小于 1024 GB 时，用 GB 单位表示
-    return gb.toFixed(2) + " GB";
+    return gb.toFixed(2) + "GB";
   };
 
-  // ✨ 核心修改 2：获取当前手机的准确时间，并补齐两位数 (例如 08:05)
   const now = new Date();
   const updateTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -100,7 +98,6 @@ export default async function (ctx) {
           { type: "image", src: "sf-symbol:chart.pie.fill", color: C_TITLE, width: 16, height: 16 },
           { type: "text", text: subName, font: { size: 14, weight: "heavy" }, textColor: C_TITLE, maxLines: 1 },
           { type: "spacer" },
-          // ✨ 核心修改 3：右上角替换为更新时间
           { type: "text", text: updateTime, font: { size: 10, weight: "bold", family: "Menlo" }, textColor: "rgba(255,255,255,0.4)" }
         ]
       },
@@ -136,10 +133,11 @@ export default async function (ctx) {
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
-          // ✨ 调用新的格式化函数并添加 minScale 进一步防止异常数据折行
-          { type: "text", text: isOk ? `${fmtSize(info.used)} / ${fmtSize(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN, minScale: 0.8 },
+          // ✨ 核心修复：添加了 maxLines: 1 和更极端的 minScale: 0.5 阻止强制换行
+          { type: "text", text: isOk ? `${fmtSize(info.used)}/${fmtSize(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN, maxLines: 1, minScale: 0.5 },
           { type: "spacer" },
-          { type: "text", text: isOk ? info.expire : "--", font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_SUB }
+          // 日期一并加上单行限制
+          { type: "text", text: isOk ? info.expire : "--", font: { size: 10, weight: "bold", family: "Menlo" }, textColor: C_SUB, maxLines: 1, minScale: 0.5 }
         ]
       }
     ]
