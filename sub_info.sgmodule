@@ -1,10 +1,5 @@
 name: 机场信息
 description: 机场订阅流量/有效期监控
-author: s486tt-ship-it
-homepage: https://github.com/s486tt-ship-it/Egern-Sub-Widget
-manual: https://github.com/s486tt-ship-it/Egern-Sub-Widget
-icon: chart.pie.fill
-
 compat_arguments:
   TITLE: 机场订阅信息
   NAME1: 机场1
@@ -37,10 +32,8 @@ compat_arguments:
   NAME10: 机场10
   URL10: 订阅链接10
   RESET_DAY10: 可选
-
 compat_arguments_desc: |
   [参数设置]
-
   1. TITLE：小组件标题，默认显示“机场订阅信息”。
   2. NAME1 ~ NAME10：订阅显示名称，可留空。
   3. URL1 ~ URL10：机场订阅链接，直接填写原始链接即可。
@@ -48,13 +41,11 @@ compat_arguments_desc: |
   5. 小组件会自动跳过未填写 URL 的项目。
   6. 若名称留空，脚本会自动回退为订阅链接域名。
   7. 脚本会自动尝试 clash-verge-rev / clash-verge / mihomo 的常见请求方式提升兼容性。
-
 scriptings:
   - generic:
       name: sub_info
       script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/main/sub_info.js
       timeout: 20
-
 widgets:
   - name: 机场订阅信息
     script_name: sub_info
