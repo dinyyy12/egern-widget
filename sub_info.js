@@ -1,5 +1,5 @@
 /**
- * 📌 Egern 流量监控小组件 (极限防折行版)
+ * 📌 Egern 流量监控小组件 (黄金居中 + 加厚进度条版)
  */
 export default async function (ctx) {
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
@@ -54,7 +54,6 @@ export default async function (ctx) {
       const ratio = total > 0 ? Math.min(used / total, 1) : 0;
       
       const expireTime = parseObj.expire ? new Date(parseObj.expire > 1e12 ? parseObj.expire : parseObj.expire * 1000) : null;
-      // ✨ 优化：缩减年份为两位数，并将 - 换成 /，进一步节省空间 (例如 24/11/05)
       const expireStr = expireTime ? `${String(expireTime.getFullYear()).slice(-2)}/${String(expireTime.getMonth()+1).padStart(2, '0')}/${String(expireTime.getDate()).padStart(2, '0')}` : "无限期";
 
       info = { used, total, ratio, percent: (ratio * 100).toFixed(1) + "%", expire: expireStr };
@@ -66,7 +65,6 @@ export default async function (ctx) {
     // 拦截异常
   }
 
-  // ✨ 优化：取消了数字和单位之间的空格，极致压缩空间 (例如 1.25GB)
   const fmtSize = (bytes) => {
     if (!bytes) return "0.00GB";
     const gb = bytes / (1024 ** 3);
@@ -92,6 +90,7 @@ export default async function (ctx) {
     padding: 14, 
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
+      // --- 顶部：标题栏 (钉在最上方) ---
       {
         type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
@@ -102,8 +101,10 @@ export default async function (ctx) {
         ]
       },
       
+      // ✨ 顶部弹性留白 (将其推向中间)
       { type: "spacer" },
       
+      // --- 中部：超大醒目的百分比数字 ---
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
@@ -114,29 +115,32 @@ export default async function (ctx) {
         ]
       },
 
-      { type: "spacer", length: 8 },
+      // ✨ 加大了数字和进度条之间的间距，让画面呼吸感更强
+      { type: "spacer", length: 12 },
       
+      // --- 核心：加粗版丝滑横向进度条 ---
+      // ✨ 高度从 8 提升到 12，圆角调至 6，更显质感
       {
-        type: "stack", direction: "row", height: 8, cornerRadius: 4, backgroundColor: "rgba(255,255,255,0.1)",
+        type: "stack", direction: "row", height: 12, cornerRadius: 6, backgroundColor: "rgba(255,255,255,0.1)",
         children: [
           {
-            type: "stack", flex: filledFlex, height: 8, cornerRadius: 4, backgroundColor: barColor, children: []
+            type: "stack", flex: filledFlex, height: 12, cornerRadius: 6, backgroundColor: barColor, children: []
           },
           {
-            type: "stack", flex: emptyFlex, height: 8, backgroundColor: "#00000000", children: []
+            type: "stack", flex: emptyFlex, height: 12, backgroundColor: "#00000000", children: []
           }
         ]
       },
 
-      { type: "spacer", length: 8 },
+      // ✨ 底部弹性留白 (将其从底部托起，实现绝对的垂直居中)
+      { type: "spacer" },
       
+      // --- 底部：具体数值与到期日 (钉在最下方) ---
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
-          // ✨ 核心修复：添加了 maxLines: 1 和更极端的 minScale: 0.5 阻止强制换行
           { type: "text", text: isOk ? `${fmtSize(info.used)}/${fmtSize(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN, maxLines: 1, minScale: 0.5 },
           { type: "spacer" },
-          // 日期一并加上单行限制
           { type: "text", text: isOk ? info.expire : "--", font: { size: 10, weight: "bold", family: "Menlo" }, textColor: C_SUB, maxLines: 1, minScale: 0.5 }
         ]
       }
