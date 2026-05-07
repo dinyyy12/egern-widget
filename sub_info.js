@@ -1,5 +1,5 @@
 /**
- * 📌 Egern 流量监控小组件 (强制物理居中 + 验真版)
+ * 📌 Egern 流量监控小组件 (像素级强制居中 + 饱满进度条版)
  */
 export default async function (ctx) {
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
@@ -17,16 +17,14 @@ export default async function (ctx) {
   };
 
   let subUrl = "";
-  // ✨ 验真标志：如果你在 App 模块参数里没有填 NAME，默认会显示这个带 Pro 的标题
-  let subName = "流量监控 Pro";
+  let subName = "流量监控";
 
   for (let i = 1; i <= 10; i++) {
     const url = cleanVal(ctx.env[`URL${i}`], `订阅链接${i}`);
     if (/^https?:\/\//i.test(url)) {
       subUrl = url;
-      // 如果你在模块里配了名字，我们加上 [Pro] 标记来验真
       const envName = cleanVal(ctx.env[`NAME${i}`], `机场${i}`);
-      if (envName) subName = `${envName} Pro`;
+      if (envName) subName = envName;
       break;
     }
   }
@@ -89,7 +87,7 @@ export default async function (ctx) {
 
   return {
     type: "widget",
-    padding: 14, 
+    padding: 16, 
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
       // --- 顶部：标题栏 ---
@@ -103,40 +101,39 @@ export default async function (ctx) {
         ]
       },
       
-      // ✨ 上方弹簧
-      { type: "spacer" },
+      // ✨ 修复核心 1：用固定 18 像素强制拉开标题和下方内容的距离
+      { type: "spacer", length: 18 },
       
-      // --- 中部：强制打包为一个整体区块 ---
+      // --- 中部：超大百分比 ---
       {
-        type: "stack", direction: "column", gap: 12, // 内部间距死死锁住 12
+        type: "stack", direction: "row", alignItems: "center",
         children: [
-          // 百分比
+          { type: "text", text: isOk ? info.percent.replace('%', '') : "ERR", font: { size: 34, weight: "heavy" }, textColor: barColor },
+          { type: "spacer", length: 2 },
+          { type: "text", text: isOk ? "%" : "", font: { size: 16, weight: "bold" }, textColor: barColor },
+          { type: "spacer" } 
+        ]
+      },
+
+      // ✨ 修复核心 2：用固定 14 像素强制隔开数字和进度条
+      { type: "spacer", length: 14 },
+      
+      // --- 核心：加厚饱满版进度条 ---
+      // 高度拔高到 14，圆角为 7，视觉上极其醒目
+      {
+        type: "stack", direction: "row", height: 14, cornerRadius: 7, backgroundColor: "rgba(255,255,255,0.15)",
+        children: [
           {
-            type: "stack", direction: "row", alignItems: "center",
-            children: [
-              { type: "text", text: isOk ? info.percent.replace('%', '') : "ERR", font: { size: 32, weight: "heavy" }, textColor: barColor },
-              { type: "spacer", length: 2 },
-              { type: "text", text: isOk ? "%" : "", font: { size: 14, weight: "bold" }, textColor: barColor },
-              { type: "spacer" } 
-            ]
+            type: "stack", flex: filledFlex, height: 14, cornerRadius: 7, backgroundColor: barColor, children: []
           },
-          // 进度条 (高度12，圆角6)
           {
-            type: "stack", direction: "row", height: 12, cornerRadius: 6, backgroundColor: "rgba(255,255,255,0.1)",
-            children: [
-              {
-                type: "stack", flex: filledFlex, height: 12, cornerRadius: 6, backgroundColor: barColor, children: []
-              },
-              {
-                type: "stack", flex: emptyFlex, height: 12, backgroundColor: "#00000000", children: []
-              }
-            ]
+            type: "stack", flex: emptyFlex, height: 14, backgroundColor: "#00000000", children: []
           }
         ]
       },
 
-      // ✨ 下方弹簧
-      { type: "spacer" },
+      // ✨ 修复核心 3：用固定 12 像素强制隔开进度条和底部文字
+      { type: "spacer", length: 12 },
       
       // --- 底部：具体数值与到期日 ---
       {
@@ -146,7 +143,10 @@ export default async function (ctx) {
           { type: "spacer" },
           { type: "text", text: isOk ? info.expire : "--", font: { size: 10, weight: "bold", family: "Menlo" }, textColor: C_SUB, maxLines: 1, minScale: 0.5 }
         ]
-      }
+      },
+      
+      // 底部最后留一点弹性空间托底
+      { type: "spacer" }
     ]
   };
 }
