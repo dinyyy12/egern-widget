@@ -1,34 +1,48 @@
 /**
- * Egern 小尺寸组件：实时网速 + 模式状态
- * 逻辑：顶部显示实时网速，中部显示当前模式与节点，背景随模式变化
+ * 适配版 Egern Dashboard
+ * 参考 Network-Pro 逻辑：支持图标、网速平滑显示、模式变色
  */
 
-const network = $network.traffic; // 获取流量数据
-const mode = $session.outboundMode;
-const proxyName = $session.proxy ? $session.proxy.name : "直连";
+(async () => {
+  // 1. 获取网络与会话数据
+  const traffic = $network.traffic || { up: 0, down: 0 };
+  const mode = $session.outboundMode || "rule";
+  const proxy = $session.proxy ? $session.proxy.name : "DIRECT";
 
-// 格式化网速显示 (B/s -> KB/s 或 MB/s)
-function formatSpeed(bytes) {
-  if (bytes < 1024) return bytes + " B/s";
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB/s";
-  return (bytes / 1048576).toFixed(1) + " MB/s";
-}
+  // 2. 格式化网速函数
+  const formatSpeed = (bytes) => {
+    if (bytes < 1024) return `${bytes.toFixed(0)} B/s`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB/s`;
+    return `${(bytes / 1048576).toFixed(1)} MB/s`;
+  };
 
-// 定义不同模式的 UI 样式
-const styles = {
-  direct: { name: "直连模式", color: "#34C759" }, // 绿色
-  rule: { name: "规则模式", color: "#007AFF" },   // 蓝色
-  global: { name: "全局代理", color: "#FF9500" }  // 橙色
-};
+  // 3. 模式样式配置 (参考 Network-Pro 的配色方案)
+  const modeConfig = {
+    direct: { title: "直连模式", color: "#34C759", icon: "arrow.right.circle" },
+    rule: { title: "规则模式", color: "#007AFF", icon: "flowchart" },
+    global: { title: "全局代理", color: "#FF9500", icon: "globe" }
+  };
 
-const currentStyle = styles[mode] || { name: "未知", color: "#8E8E93" };
+  const current = modeConfig[mode] || modeConfig.rule;
 
-$dashboard.setData({
-  title: `↓ ${formatSpeed(network.down)}   ↑ ${formatSpeed(network.up)}`,
-  content: `模式: ${currentStyle.name}\n节点: ${proxyName}`,
-  backgroundColor: currentStyle.color,
-  titleColor: "#FFFFFF",
-  contentColor: "#FFFFFF",
-  // 点击跳转到模式切换页面
-  url: "egern://outbound-mode"
-});
+  // 4. 组装展示内容
+  // \u11fa 这种符号在某些固件上支持更好，或者直接用 SF Symbols
+  const content = [
+    `下行: ${formatSpeed(traffic.down)}`,
+    `上行: ${formatSpeed(traffic.up)}`,
+    `节点: ${proxy}`
+  ].join("\n");
+
+  // 5. 核心：使用 $dashboard.setData 渲染
+  $dashboard.setData({
+    title: current.title,
+    content: content,
+    backgroundColor: current.color,
+    titleColor: "#FFFFFF",
+    contentColor: "#FFFFFF",
+    // 点击小组件跳转到模式选择页面
+    url: "egern://outbound-mode"
+  });
+
+  $done(); // 必须调用 $done() 结束脚本
+})();
