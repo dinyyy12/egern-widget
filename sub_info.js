@@ -1,10 +1,8 @@
 /**
- * 📌 Egern 流量监控小组件 (暗黑渐变安全修复版)
+ * 📌 Egern 流量监控小组件 (暗黑渐变 + 智能单位与时间版)
  */
 export default async function (ctx) {
-  // 1. 安全的纯字符串渐变色 (修复引擎解析对象崩溃的问题)
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
-  
   const C_TITLE = { light: '#FFD700', dark: '#FFD700' };
   const C_SUB = { light: '#A2A2B5', dark: '#A2A2B5' };
   const C_GREEN = { light: '#32D74B', dark: '#32D74B' };
@@ -67,7 +65,21 @@ export default async function (ctx) {
     // 拦截异常
   }
 
-  const fmtGB = (bytes) => (bytes / (1024 ** 3)).toFixed(1) + " GB";
+  // ✨ 核心修改 1：智能容量换算与 2 位小数格式化
+  const fmtSize = (bytes) => {
+    if (!bytes) return "0.00 GB";
+    const gb = bytes / (1024 ** 3);
+    if (gb >= 1024) {
+      // 超过或等于 1024 GB (1 TB) 时，用 TB 单位表示
+      return (gb / 1024).toFixed(2) + " TB";
+    }
+    // 小于 1024 GB 时，用 GB 单位表示
+    return gb.toFixed(2) + " GB";
+  };
+
+  // ✨ 核心修改 2：获取当前手机的准确时间，并补齐两位数 (例如 08:05)
+  const now = new Date();
+  const updateTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   let barColor = C_GREEN; 
   if (info.ratio > 0.75) barColor = C_WARN; 
@@ -80,7 +92,6 @@ export default async function (ctx) {
   return {
     type: "widget",
     padding: 14, 
-    // ✨ 使用绝对安全的字符串数组渐变
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
       {
@@ -89,7 +100,8 @@ export default async function (ctx) {
           { type: "image", src: "sf-symbol:chart.pie.fill", color: C_TITLE, width: 16, height: 16 },
           { type: "text", text: subName, font: { size: 14, weight: "heavy" }, textColor: C_TITLE, maxLines: 1 },
           { type: "spacer" },
-          { type: "text", text: "Subscription", font: { size: 9 }, textColor: "rgba(255,255,255,0.2)" }
+          // ✨ 核心修改 3：右上角替换为更新时间
+          { type: "text", text: updateTime, font: { size: 10, weight: "bold", family: "Menlo" }, textColor: "rgba(255,255,255,0.4)" }
         ]
       },
       
@@ -124,7 +136,8 @@ export default async function (ctx) {
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
-          { type: "text", text: isOk ? `${fmtGB(info.used)} / ${fmtGB(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN },
+          // ✨ 调用新的格式化函数并添加 minScale 进一步防止异常数据折行
+          { type: "text", text: isOk ? `${fmtSize(info.used)} / ${fmtSize(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN, minScale: 0.8 },
           { type: "spacer" },
           { type: "text", text: isOk ? info.expire : "--", font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_SUB }
         ]
