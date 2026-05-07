@@ -1,5 +1,5 @@
 /**
- * 📌 Egern 流量监控小组件 (黄金居中 + 加厚进度条版)
+ * 📌 Egern 流量监控小组件 (绝对垂直居中 + 比例优化版)
  */
 export default async function (ctx) {
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
@@ -90,7 +90,7 @@ export default async function (ctx) {
     padding: 14, 
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
-      // --- 顶部：标题栏 (钉在最上方) ---
+      // === 模块 1: 顶部标题栏 ===
       {
         type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
@@ -101,41 +101,38 @@ export default async function (ctx) {
         ]
       },
       
-      // ✨ 顶部弹性留白 (将其推向中间)
+      // ✨ 上方弹簧 (1:1等分挤压中间包裹)
       { type: "spacer" },
       
-      // --- 中部：超大醒目的百分比数字 ---
+      // === 模块 2: 中间核心包裹 (百分比 + 进度条打包) ===
       {
-        type: "stack", direction: "row", alignItems: "center",
+        type: "stack", direction: "column", gap: 10, // 这里的 gap 控制数字和进度条的距离
         children: [
-          { type: "text", text: isOk ? info.percent.replace('%', '') : "ERR", font: { size: 32, weight: "heavy" }, textColor: barColor },
-          { type: "spacer", length: 2 },
-          { type: "text", text: isOk ? "%" : "", font: { size: 14, weight: "bold" }, textColor: barColor },
-          { type: "spacer" } 
-        ]
-      },
-
-      // ✨ 加大了数字和进度条之间的间距，让画面呼吸感更强
-      { type: "spacer", length: 12 },
-      
-      // --- 核心：加粗版丝滑横向进度条 ---
-      // ✨ 高度从 8 提升到 12，圆角调至 6，更显质感
-      {
-        type: "stack", direction: "row", height: 12, cornerRadius: 6, backgroundColor: "rgba(255,255,255,0.1)",
-        children: [
+          // 2.1 超大醒目的百分比数字
           {
-            type: "stack", flex: filledFlex, height: 12, cornerRadius: 6, backgroundColor: barColor, children: []
+            type: "stack", direction: "row", alignItems: "center",
+            children: [
+              { type: "text", text: isOk ? info.percent.replace('%', '') : "ERR", font: { size: 32, weight: "heavy" }, textColor: barColor },
+              { type: "spacer", length: 2 },
+              { type: "text", text: isOk ? "%" : "", font: { size: 14, weight: "bold" }, textColor: barColor },
+              { type: "spacer" } 
+            ]
           },
+          // 2.2 比例适中的横向进度条 (高度 10)
           {
-            type: "stack", flex: emptyFlex, height: 12, backgroundColor: "#00000000", children: []
+            type: "stack", direction: "row", height: 10, cornerRadius: 5, backgroundColor: "rgba(255,255,255,0.1)",
+            children: [
+              { type: "stack", flex: filledFlex, height: 10, cornerRadius: 5, backgroundColor: barColor, children: [] },
+              { type: "stack", flex: emptyFlex, height: 10, backgroundColor: "#00000000", children: [] }
+            ]
           }
         ]
       },
 
-      // ✨ 底部弹性留白 (将其从底部托起，实现绝对的垂直居中)
+      // ✨ 下方弹簧 (1:1等分挤压中间包裹)
       { type: "spacer" },
       
-      // --- 底部：具体数值与到期日 (钉在最下方) ---
+      // === 模块 3: 底部具体数值与到期日 ===
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
