@@ -1,6 +1,6 @@
-name: "网络控件小组件"
-description: "在小组件中显示网络控制模块"
-author: "11"
+name: 网络控件小组件
+description: 在小组件中显示网络控制模块
+author: 11
 
 scriptings:
   - generic:
