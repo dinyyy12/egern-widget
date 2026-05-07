@@ -1,0 +1,89 @@
+name: sub_info
+description: 机场订阅流量小组件
+icon: chart.pie.fill
+
+compat_arguments:
+  TITLE: 机场订阅信息
+  NAME1: 机场1
+  URL1: 订阅链接1
+  RESET_DAY1: 可选
+  NAME2: 机场2
+  URL2: 订阅链接2
+  RESET_DAY2: 可选
+  NAME3: 机场3
+  URL3: 订阅链接3
+  RESET_DAY3: 可选
+  NAME4: 机场4
+  URL4: 订阅链接4
+  RESET_DAY4: 可选
+  NAME5: 机场5
+  URL5: 订阅链接5
+  RESET_DAY5: 可选
+  NAME6: 机场6
+  URL6: 订阅链接6
+  RESET_DAY6: 可选
+  NAME7: 机场7
+  URL7: 订阅链接7
+  RESET_DAY7: 可选
+  NAME8: 机场8
+  URL8: 订阅链接8
+  RESET_DAY8: 可选
+  NAME9: 机场9
+  URL9: 订阅链接9
+  RESET_DAY9: 可选
+  NAME10: 机场10
+  URL10: 订阅链接10
+  RESET_DAY10: 可选
+
+compat_arguments_desc: |
+  [参数设置]
+
+  1. TITLE：小组件标题，默认显示“机场订阅信息”。
+  2. NAME1 ~ NAME10：订阅显示名称，可留空。
+  3. URL1 ~ URL10：机场订阅链接，直接填写原始链接即可。
+  4. RESET_DAY1 ~ RESET_DAY10：每月流量重置日，可选，填写 1-31。
+  5. 小组件会自动跳过未填写 URL 的项目。
+  6. 若名称留空，脚本会自动回退为订阅链接域名。
+  7. 脚本会自动尝试 clash-verge-rev / clash-verge / mihomo 的常见请求方式提升兼容性。
+
+scriptings:
+  - generic:
+      name: sub_info
+      script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/refs/heads/main/sub_info.js
+      timeout: 20
+
+widgets:
+  - name: 机场订阅信息
+    script_name: sub_info
+    env:
+      TITLE: "{{{TITLE}}}"
+      NAME1: "{{{NAME1}}}"
+      URL1: "{{{URL1}}}"
+      RESET_DAY1: "{{{RESET_DAY1}}}"
+      NAME2: "{{{NAME2}}}"
+      URL2: "{{{URL2}}}"
+      RESET_DAY2: "{{{RESET_DAY2}}}"
+      NAME3: "{{{NAME3}}}"
+      URL3: "{{{URL3}}}"
+      RESET_DAY3: "{{{RESET_DAY3}}}"
+      NAME4: "{{{NAME4}}}"
+      URL4: "{{{URL4}}}"
+      RESET_DAY4: "{{{RESET_DAY4}}}"
+      NAME5: "{{{NAME5}}}"
+      URL5: "{{{URL5}}}"
+      RESET_DAY5: "{{{RESET_DAY5}}}"
+      NAME6: "{{{NAME6}}}"
+      URL6: "{{{URL6}}}"
+      RESET_DAY6: "{{{RESET_DAY6}}}"
+      NAME7: "{{{NAME7}}}"
+      URL7: "{{{URL7}}}"
+      RESET_DAY7: "{{{RESET_DAY7}}}"
+      NAME8: "{{{NAME8}}}"
+      URL8: "{{{URL8}}}"
+      RESET_DAY8: "{{{RESET_DAY8}}}"
+      NAME9: "{{{NAME9}}}"
+      URL9: "{{{URL9}}}"
+      RESET_DAY9: "{{{RESET_DAY9}}}"
+      NAME10: "{{{NAME10}}}"
+      URL10: "{{{URL10}}}"
+      RESET_DAY10: "{{{RESET_DAY10}}}"
