@@ -1,133 +1,829 @@
-/**
- * 📌 Egern 极简流量监控小组件 (湛蓝校验版 - 修复对齐报错)
+/*
+ * Egern subscription widget.
+ * (基于原版修改：去除左侧模块，仅保留进度条排版)
  */
+
+const MAX_SUBSCRIPTIONS = 10;
+const DEFAULT_TITLE = "机场订阅信息";
+
+const REQUEST_PROFILES = [
+  {
+    method: "head",
+    headers: {
+      "User-Agent": "Quantumult%20X/1.5.2",
+      Accept: "*/*",
+    },
+  },
+  {
+    method: "get",
+    headers: {
+      "User-Agent": "clash-verge-rev/2.3.1",
+      Accept: "application/x-yaml,text/plain,*/*",
+      "Profile-Update-Interval": "24",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  },
+  {
+    method: "get",
+    headers: {
+      "User-Agent": "clash-verge/v2.0.0",
+      Accept: "application/x-yaml,text/plain,*/*",
+      "Profile-Update-Interval": "24",
+    },
+  },
+  {
+    method: "get",
+    headers: {
+      "User-Agent": "mihomo/1.19.3",
+      Accept: "application/x-yaml,text/plain,*/*",
+      "Profile-Update-Interval": "24",
+    },
+  },
+];
+
 export default async function (ctx) {
-  // 1. 辅助函数：清理未填写的模板参数
-  const cleanVal = (val, defaultStr) => {
-    const text = String(val || "").trim();
-    if (/^\{\{\{[^}]+\}\}\}$/.test(text) || text === defaultStr || text === "可选") return "";
-    return text;
-  };
+  const config = parseEnv(ctx.env || {});
+  const activeSlots = config.slots.filter((slot) => slot.url).slice(0, MAX_SUBSCRIPTIONS);
 
-  // 2. 从模块环境变量中寻找第一个有效订阅
-  let subUrl = "";
-  let subName = "流量监控(蓝版)";
-
-  for (let i = 1; i <= 10; i++) {
-    const url = cleanVal(ctx.env[`URL${i}`], `订阅链接${i}`);
-    if (/^https?:\/\//i.test(url)) {
-      subUrl = url;
-      subName = cleanVal(ctx.env[`NAME${i}`], `机场${i}`) || subName;
-      break;
-    }
+  if (!activeSlots.length) {
+    return buildEmptyWidget(config);
   }
 
-  // 3. 初始化数据
-  let info = { used: 0, total: 0, ratio: 0, percent: "0%", expire: "--" };
-  let isOk = false;
-  let errMsg = "未配置链接";
+  const items = [];
+  for (const slot of activeSlots) {
+    items.push(await loadSubscription(ctx, slot));
+  }
+
+  return buildWidget(ctx, config, items);
+}
+
+function parseEnv(env) {
+  const slots = [];
+
+  for (let index = 1; index <= MAX_SUBSCRIPTIONS; index += 1) {
+    slots.push({
+      name: sanitizeTemplateValue(env[`NAME${index}`]),
+      url: sanitizeTemplateValue(env[`URL${index}`]),
+      resetDay: sanitizeTemplateValue(env[`RESET_DAY${index}`]),
+    });
+  }
+
+  normalizeShiftedSlots(slots);
+
+  return {
+    title: sanitizeTemplateValue(env.TITLE) || DEFAULT_TITLE,
+    slots,
+  };
+}
+
+async function loadSubscription(ctx, slot) {
+  const name = slot.name || inferNameFromUrl(slot.url);
+  const resetDay = normalizeResetDay(slot.resetDay);
 
   try {
-    if (!subUrl) throw new Error("No URL");
+    const info = await fetchSubscriptionInfo(ctx, slot.url);
+    const used = Number(info.upload || 0) + Number(info.download || 0);
+    const total = Number(info.total || 0);
+    const ratio = total > 0 ? clamp(used / total, 0, 1) : 0;
 
-    const response = await ctx.http.get(subUrl, {
-      headers: { "User-Agent": "clash-verge/v2.0.0" },
-      timeout: 5000
-    });
+    return {
+      ok: true,
+      name,
+      used,
+      total,
+      usedText: bytesToSize(used),
+      totalText: bytesToSize(total),
+      ratio,
+      percentText: `${(ratio * 100).toFixed(1)}%`,
+      expireText: info.expire ? formatDate(info.expire) : "",
+      resetText: resetDay ? `${getRemainingDays(resetDay)} 天` : "",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      name,
+      errorText: String(error || "获取失败"),
+    };
+  }
+}
 
-    const userInfo = response.headers.get("subscription-userinfo") || response.headers.get("Subscription-Userinfo");
-    if (userInfo) {
-      const parseObj = Object.fromEntries(
-        userInfo.match(/\w+=[\d.eE+-]+/g).map(i => {
-          const [k, v] = i.split("=");
-          return [k, Number(v)];
-        })
-      );
+async function fetchSubscriptionInfo(ctx, url) {
+  const attempts = buildRequestAttempts(url);
+  const errors = [];
 
-      const used = (parseObj.upload || 0) + (parseObj.download || 0);
-      const total = parseObj.total || 0;
-      const ratio = total > 0 ? Math.min(used / total, 1) : 0;
-      
-      const expireTime = parseObj.expire ? new Date(parseObj.expire > 1e12 ? parseObj.expire : parseObj.expire * 1000) : null;
-      const expireStr = expireTime ? `${expireTime.getFullYear()}-${String(expireTime.getMonth()+1).padStart(2, '0')}-${String(expireTime.getDate()).padStart(2, '0')}` : "无限期";
+  for (const attempt of attempts) {
+    try {
+      const response = await ctx.http[attempt.method](attempt.url, {
+        headers: attempt.headers,
+        timeout: 12000,
+      });
 
-      info = { used, total, ratio, percent: (ratio * 100).toFixed(1) + "%", expire: expireStr };
-      isOk = true;
-    } else {
-      errMsg = "未获取到数据";
+      if (response.status < 200 || response.status >= 400) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const headerValue = response.headers.get("subscription-userinfo");
+      if (!headerValue) {
+        throw new Error("subscription-userinfo missing");
+      }
+
+      return parseSubscriptionUserInfo(headerValue);
+    } catch (error) {
+      errors.push(`[${attempt.method.toUpperCase()}] ${attempt.url} -> ${String(error)}`);
     }
-  } catch (e) {
-    // 拦截异常
   }
 
-  // 4. 数据格式化辅助函数
-  const fmtGB = (bytes) => (bytes / (1024 ** 3)).toFixed(1) + " GB";
+  throw new Error(errors[errors.length - 1] || "request failed");
+}
 
-  // 5. 颜色预警系统
-  let themeColor = "#007AFF"; // 湛蓝色
-  if (info.ratio > 0.75) themeColor = "#FF9500"; 
-  if (info.ratio > 0.90) themeColor = "#FF3B30"; 
-  if (!isOk) themeColor = "#8E8E93"; 
+function buildRequestAttempts(url) {
+  const variants = buildUrlVariants(url);
+  const attempts = [];
 
-  // 6. 计算进度条比例
-  const filledFlex = Math.max(1, Math.round(info.ratio * 100));
-  const emptyFlex = Math.max(1, 100 - filledFlex);
+  for (const variant of variants) {
+    for (const profile of REQUEST_PROFILES) {
+      attempts.push({
+        url: variant,
+        method: profile.method,
+        headers: profile.headers,
+      });
+    }
+  }
 
-  // 7. 构建 UI 树
+  return attempts;
+}
+
+function buildUrlVariants(url) {
+  const variants = [];
+  const seen = {};
+
+  const append = (candidate) => {
+    if (!candidate || seen[candidate]) return;
+    seen[candidate] = true;
+    variants.push(candidate);
+  };
+
+  append(url);
+  append(withQueryParam(url, "flag", "clash"));
+  append(withQueryParam(url, "flag", "meta"));
+  append(withQueryParam(url, "target", "clash"));
+  append(withQueryParam(url, "target", "clash-meta"));
+  append(withQueryParam(url, "client", "clash-verge-rev"));
+
+  return variants;
+}
+
+function withQueryParam(url, key, value) {
+  if (!isLikelyUrl(url)) return "";
+  if (new RegExp(`([?&])${escapeRegExp(key)}=`).test(url)) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(value)}`;
+}
+
+function parseSubscriptionUserInfo(headerValue) {
+  const pairs = String(headerValue).match(/\w+=[\d.eE+-]+/g) || [];
+  return Object.fromEntries(
+    pairs.map((item) => {
+      const [key, value] = item.split("=");
+      return [key, Number(value)];
+    })
+  );
+}
+
+function buildWidget(ctx, config, items) {
+  const family = ctx.widgetFamily || "systemMedium";
+  if (family === "accessoryInline") return buildInlineWidget(config, items);
+  if (family === "accessoryCircular") return buildCircularWidget(config, items);
+  if (family === "accessoryRectangular") return buildRectangularWidget(config, items);
+  if (family === "systemSmall") return buildSmallWidget(config, items);
+
   return {
     type: "widget",
     padding: 16,
-    backgroundColor: { light: "#F4F8FF", dark: "#121A24" },
+    gap: 10,
+    backgroundGradient: {
+      colors: ["#F7F8FC", "#ECEFF7"],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
     children: [
-      // --- 顶部：标题栏 ---
-      {
-        type: "stack", direction: "row", alignItems: "center",
-        children: [
-          { type: "image", src: "sf-symbol:chart.bar.fill", color: themeColor, width: 14, height: 14 },
-          { type: "spacer", length: 6 },
-          { type: "text", text: subName, font: { size: 13, weight: "heavy" }, textColor: themeColor, maxLines: 1 }
-        ]
-      },
-      
-      { type: "spacer" },
-      
-      // --- 中部：超大醒目的百分比数字 ---
-      {
-        type: "stack", direction: "row", alignItems: "center", // ✨ 修复点：已将 baseline 改为安全的 center
-        children: [
-          { type: "text", text: isOk ? info.percent.replace('%', '') : "ERR", font: { size: 32, weight: "heavy" }, textColor: themeColor },
-          { type: "spacer", length: 2 },
-          { type: "text", text: isOk ? "%" : "", font: { size: 14, weight: "bold" }, textColor: themeColor },
-          { type: "spacer" } 
-        ]
-      },
+      buildHeader(config.title),
+      ...items.map((item) => buildCompactRow(item)),
+    ],
+  };
+}
 
-      { type: "spacer", length: 8 },
-      
-      // --- 核心：丝滑的横向进度条 ---
+function buildSmallWidget(config, items) {
+  const item = items[0];
+  return {
+    type: "widget",
+    padding: 14,
+    gap: 10,
+    backgroundGradient: {
+      colors: ["#F7F8FC", "#ECEFF7"],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      buildHeader(config.title),
+      item ? buildMainCard(item) : buildEmptyWidget(config),
+    ],
+  };
+}
+
+function buildHeader(title) {
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    children: [
       {
-        type: "stack", direction: "row", height: 10, cornerRadius: 5, backgroundColor: { light: "#D0DFF0", dark: "#2A3A4A" },
+        type: "text",
+        text: title,
+        font: { size: 16, weight: "semibold" },
+        textColor: "#151821",
+        maxLines: 1,
+        minScale: 0.7,
+      },
+      { type: "spacer" },
+      {
+        type: "date",
+        date: new Date().toISOString(),
+        format: "time",
+        font: { size: 12, weight: "semibold" },
+        textColor: "#7C8193",
+      },
+    ],
+  };
+}
+
+// ✨ 修改重点 1：小尺寸卡片，去除了左侧 Badge，仅保留信息和进度条
+function buildMainCard(item) {
+  if (!item.ok) {
+    return {
+      type: "stack",
+      direction: "column",
+      gap: 8,
+      padding: 16,
+      backgroundColor: "#FFFFFF",
+      borderRadius: 22,
+      shadowColor: "#ABB3C733",
+      shadowRadius: 10,
+      shadowOffset: { x: 0, y: 4 },
+      children: [
+        {
+          type: "text",
+          text: item.name,
+          font: { size: 15, weight: "semibold" },
+          textColor: "#151821",
+          maxLines: 1,
+        },
+        {
+          type: "text",
+          text: item.errorText,
+          font: { size: 12, weight: "medium" },
+          textColor: "#D04545",
+          maxLines: 3,
+          minScale: 0.7,
+        },
+      ],
+    };
+  }
+
+  const chips = [];
+  if (item.expireText) chips.push(buildChip("到期", item.expireText));
+  if (item.resetText) chips.push(buildChip("重置", item.resetText));
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 10,
+    padding: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    shadowColor: "#ABB3C733",
+    shadowRadius: 10,
+    shadowOffset: { x: 0, y: 4 },
+    children: [
+      {
+        type: "stack",
+        direction: "column",
+        gap: 6,
         children: [
           {
-            type: "stack", flex: filledFlex, height: 10, cornerRadius: 5, backgroundColor: themeColor, children: []
+            type: "stack",
+            direction: "row",
+            alignItems: "center",
+            gap: 8,
+            children: [
+              {
+                type: "text",
+                text: item.name,
+                font: { size: 15, weight: "semibold" },
+                textColor: "#151821",
+                maxLines: 1,
+                minScale: 0.6,
+                flex: 1,
+              },
+              buildMetaPill(item.percentText, gaugeColor(item.ratio)),
+            ],
           },
           {
-            type: "stack", flex: emptyFlex, height: 10, backgroundColor: "#00000000", children: []
-          }
-        ]
+            type: "text",
+            text: `已用 ${item.usedText} / ${item.totalText}`,
+            font: { size: 12, weight: "medium" },
+            textColor: "#5C6272",
+            maxLines: 2,
+            minScale: 0.7,
+          },
+        ],
       },
-
-      { type: "spacer", length: 8 },
-      
-      // --- 底部：具体数值与到期日 ---
-      {
-        type: "stack", direction: "row", alignItems: "center",
-        children: [
-          { type: "text", text: isOk ? `${fmtGB(info.used)} / ${fmtGB(info.total)}` : errMsg, font: { size: 10, weight: "bold" }, textColor: { light: "#5A6A80", dark: "#7A8A9A" } },
-          { type: "spacer" },
-          { type: "text", text: isOk ? info.expire : "--", font: { size: 10, weight: "medium" }, textColor: { light: "#5A6A80", dark: "#7A8A9A" } }
-        ]
-      }
-    ]
+      buildProgressBarStack(item.ratio),
+      chips.length
+        ? {
+            type: "stack",
+            direction: "row",
+            gap: 8,
+            children: chips,
+          }
+        : {
+            type: "spacer", length: 0
+          },
+    ],
   };
+}
+
+// ✨ 修改重点 2：中/大尺寸卡片，去除了左侧方块，仅保留进度条行
+function buildCompactRow(item) {
+  if (!item.ok) {
+    return {
+      type: "stack",
+      direction: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      backgroundColor: "#FFFFFF",
+      borderRadius: 20,
+      shadowColor: "#ABB3C733",
+      shadowRadius: 10,
+      shadowOffset: { x: 0, y: 4 },
+      borderWidth: 1,
+      borderColor: "#EEF1F7",
+      children: [
+        {
+          type: "stack",
+          direction: "column",
+          gap: 4,
+          flex: 1,
+          children: [
+            {
+              type: "text",
+              text: item.name,
+              font: { size: 14, weight: "semibold" },
+              textColor: "#151821",
+              maxLines: 1,
+              minScale: 0.65,
+            },
+            {
+              type: "text",
+              text: item.errorText,
+              font: { size: 11, weight: "medium" },
+              textColor: "#D04545",
+              maxLines: 2,
+              minScale: 0.7,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  const meta = [];
+  if (item.expireText) meta.push(item.expireText);
+  if (item.resetText) meta.push(`重置 ${item.resetText}`);
+
+  return {
+    type: "stack",
+    direction: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    shadowColor: "#ABB3C733",
+    shadowRadius: 10,
+    shadowOffset: { x: 0, y: 4 },
+    borderWidth: 1,
+    borderColor: "#EEF1F7",
+    children: [
+      {
+        type: "stack",
+        direction: "column",
+        gap: 6,
+        flex: 1,
+        children: [
+          {
+            type: "stack",
+            direction: "row",
+            alignItems: "center",
+            gap: 8,
+            children: [
+              {
+                type: "text",
+                text: item.name,
+                font: { size: 14, weight: "semibold" },
+                textColor: "#151821",
+                maxLines: 1,
+                minScale: 0.6,
+                flex: 1,
+              },
+              buildMetaPill(item.percentText, gaugeColor(item.ratio)),
+            ],
+          },
+          buildCompactProgressBar(item.ratio),
+          {
+            type: "text",
+            text: `${item.usedText} / ${item.totalText}${meta.length ? `  ·  ${meta.join("  ·  ")}` : ""}`,
+            font: { size: 11, weight: "medium" },
+            textColor: "#6E7588",
+            maxLines: 1,
+            minScale: 0.55,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildMetaPill(text, color) {
+  return {
+    type: "stack",
+    padding: [4, 8, 4, 8],
+    backgroundColor: "#F2F5FB",
+    borderRadius: 999,
+    children: [
+      {
+        type: "text",
+        text,
+        font: { size: 10, weight: "bold" },
+        textColor: color,
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildCompactProgressBar(ratio) {
+  const filledFlex = Math.max(1, Math.round(clamp(ratio, 0, 1) * 100));
+  const emptyFlex = Math.max(1, 100 - filledFlex);
+
+  return {
+    type: "stack",
+    direction: "row",
+    height: 8,
+    backgroundColor: "#E8ECF5",
+    borderRadius: 999,
+    children: [
+      {
+        type: "stack",
+        flex: filledFlex,
+        height: 8,
+        backgroundColor: gaugeColor(ratio),
+        borderRadius: 999,
+        children: [],
+      },
+      {
+        type: "stack",
+        flex: emptyFlex,
+        height: 8,
+        backgroundColor: "#00000000",
+        children: [],
+      },
+    ],
+  };
+}
+
+function buildProgressBarStack(ratio) {
+  const filledFlex = Math.max(1, Math.round(clamp(ratio, 0, 1) * 100));
+  const emptyFlex = Math.max(1, 100 - filledFlex);
+
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 6,
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        height: 8,
+        backgroundColor: "#E8ECF5",
+        borderRadius: 999,
+        children: [
+          {
+            type: "stack",
+            flex: filledFlex,
+            height: 8,
+            backgroundColor: gaugeColor(ratio),
+            borderRadius: 999,
+            children: [],
+          },
+          {
+            type: "stack",
+            flex: emptyFlex,
+            height: 8,
+            backgroundColor: "#00000000",
+            children: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildChip(label, value) {
+  return {
+    type: "stack",
+    direction: "column",
+    gap: 2,
+    padding: [8, 10, 8, 10],
+    backgroundColor: "#F2F5FB",
+    borderRadius: 14,
+    children: [
+      {
+        type: "text",
+        text: label,
+        font: { size: 10, weight: "medium" },
+        textColor: "#8C92A3",
+        maxLines: 1,
+      },
+      {
+        type: "text",
+        text: value,
+        font: { size: 12, weight: "semibold" },
+        textColor: "#20242F",
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildInlineWidget(config, items) {
+  const item = items[0];
+  if (!item || !item.ok) {
+    return {
+      type: "widget",
+      backgroundColor: "#00000000",
+      children: [
+        {
+          type: "text",
+          text: `${config.title} 获取失败`,
+          font: { size: 11, weight: "medium" },
+          textColor: "#FFFFFF",
+        },
+      ],
+    };
+  }
+
+  return {
+    type: "widget",
+    backgroundColor: "#00000000",
+    children: [
+      {
+        type: "text",
+        text: `${item.name} ${item.percentText}`,
+        font: { size: 12, weight: "semibold" },
+        textColor: "#FFFFFF",
+        maxLines: 1,
+      },
+    ],
+  };
+}
+
+function buildCircularWidget(config, items) {
+  const item = items[0];
+  if (!item || !item.ok) {
+    return {
+      type: "widget",
+      backgroundColor: "#151821",
+      padding: 10,
+      children: [
+        {
+          type: "text",
+          text: "ERR",
+          font: { size: "caption1", weight: "bold" },
+          textColor: "#FFFFFF",
+        },
+      ],
+    };
+  }
+
+  return {
+    type: "widget",
+    padding: 8,
+    backgroundColor: "#151821",
+    children: [
+      {
+        type: "text",
+        text: item.percentText,
+        font: { size: 16, weight: "bold" },
+        textColor: "#FFFFFF",
+        textAlign: "center",
+      },
+    ],
+  };
+}
+
+function buildRectangularWidget(config, items) {
+  const item = items[0];
+  if (!item || !item.ok) {
+    return {
+      type: "widget",
+      padding: 12,
+      backgroundColor: "#151821",
+      children: [
+        {
+          type: "text",
+          text: `${config.title}\n获取失败`,
+          font: { size: "caption1", weight: "semibold" },
+          textColor: "#FFFFFF",
+        },
+      ],
+    };
+  }
+
+  return {
+    type: "widget",
+    padding: 12,
+    gap: 8,
+    backgroundColor: "#151821",
+    children: [
+      {
+        type: "stack",
+        direction: "row",
+        alignItems: "center",
+        gap: 10,
+        children: [
+          {
+            type: "stack",
+            direction: "column",
+            gap: 2,
+            children: [
+              {
+                type: "text",
+                text: item.percentText,
+                font: { size: 16, weight: "bold" },
+                textColor: "#FFFFFF",
+                maxLines: 1,
+              },
+              {
+                type: "text",
+                text: item.name,
+                font: { size: 11, weight: "semibold" },
+                textColor: "#FFFFFF",
+                maxLines: 1,
+              },
+            ],
+          },
+          {
+            type: "stack",
+            direction: "column",
+            gap: 2,
+            flex: 1,
+            children: [
+              {
+                type: "text",
+                text: `${item.usedText} / ${item.totalText}`,
+                font: { size: 10, weight: "medium" },
+                textColor: "#B3B9C8",
+                maxLines: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildEmptyWidget(config) {
+  return {
+    type: "widget",
+    padding: 18,
+    gap: 10,
+    backgroundGradient: {
+      colors: ["#F7F8FC", "#ECEFF7"],
+      startPoint: { x: 0, y: 0 },
+      endPoint: { x: 1, y: 1 },
+    },
+    children: [
+      buildHeader(config.title),
+      {
+        type: "stack",
+        direction: "column",
+        gap: 8,
+        padding: 16,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 22,
+        children: [
+          {
+            type: "text",
+            text: "请先在模块参数中填写订阅链接",
+            font: { size: 15, weight: "semibold" },
+            textColor: "#151821",
+            maxLines: 2,
+          },
+          {
+            type: "text",
+            text: "支持 10 组机场名称、订阅链接和重置日",
+            font: { size: 12, weight: "medium" },
+            textColor: "#7C8193",
+            maxLines: 2,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function gaugeColor(ratio) {
+  if (ratio >= 0.9) return "#F05C4E";
+  if (ratio >= 0.75) return "#F6A63A";
+  return "#6B8CFF";
+}
+
+function sanitizeTemplateValue(value) {
+  const text = String(value || "").trim();
+  if (/^\{\{\{[^}]+\}\}\}$/.test(text)) return "";
+  if (/^机场\d+$/i.test(text)) return "";
+  if (/^订阅链接\d+$/i.test(text)) return "";
+  if (/^可选$/i.test(text)) return "";
+  return text;
+}
+
+function normalizeShiftedSlots(slots) {
+  for (let index = 0; index < slots.length - 1; index += 1) {
+    const current = slots[index];
+    const next = slots[index + 1];
+
+    if (!current || !next) continue;
+    if (!current.resetDay || normalizeResetDay(current.resetDay)) continue;
+    if (!isLikelyUrl(next.name) || next.url) continue;
+
+    next.url = next.name;
+    next.name = current.resetDay;
+    current.resetDay = "";
+  }
+}
+
+function normalizeResetDay(value) {
+  const resetDay = parseInt(value, 10);
+  return Number.isFinite(resetDay) && resetDay > 0 && resetDay <= 31 ? resetDay : null;
+}
+
+function inferNameFromUrl(url) {
+  const matched = String(url).match(/^https?:\/\/([^\/?#]+)/i);
+  return matched ? matched[1] : "未命名订阅";
+}
+
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test(String(value || "").trim());
+}
+
+function escapeRegExp(input) {
+  return String(input).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getRemainingDays(resetDay) {
+  const now = new Date();
+  const currentDay = now.getDate();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  let resetDate = new Date(currentYear, currentMonth, resetDay);
+  if (currentDay >= resetDay) {
+    resetDate = new Date(currentYear, currentMonth + 1, resetDay);
+  }
+
+  const delta = resetDate.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(delta / (24 * 60 * 60 * 1000)));
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function bytesToSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const power = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, power)).toFixed(power === 0 ? 0 : 2)} ${units[power]}`;
+}
+
+function formatDate(expireValue) {
+  const timestamp = Number(expireValue);
+  const date = new Date(timestamp > 1e12 ? timestamp : timestamp * 1000);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
