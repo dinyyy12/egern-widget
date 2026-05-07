@@ -1,33 +1,35 @@
 /**
- * Egern Dashboard 脚本
+ * 适配 Egern 最新官方文档的 Widget 脚本
  */
-(async () => {
-  const traffic = $network.traffic || { up: 0, down: 0 };
-  const mode = $session.outboundMode || "rule";
-  const proxyName = $session.proxy ? $session.proxy.name : "DIRECT";
 
-  const formatSpeed = (bytes) => {
-    if (bytes < 1024) return `${bytes.toFixed(0)} B/s`;
-    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB/s`;
-    return `${(bytes / 1048576).toFixed(1)} MB/s`;
-  };
+// 获取数据
+const traffic = $network.traffic;
+const mode = $session.outboundMode;
+const proxy = $session.proxy ? $session.proxy.name : "DIRECT";
 
-  const config = {
-    direct: { title: "直连模式", color: "#34C759" },
-    rule: { title: "规则模式", color: "#007AFF" },
-    global: { title: "全局代理", color: "#FF9500" }
-  };
+// 格式化速度
+const speed = (b) => {
+  if (!b || b < 0) return "0 B/s";
+  return b < 1048576 ? (b / 1024).toFixed(1) + " KB/s" : (b / 1048576).toFixed(1) + " MB/s";
+};
 
-  const style = config[mode] || config.rule;
+// 样式配置
+const themes = {
+  direct: { name: "直连", color: "#34C759" },
+  rule: { name: "规则", color: "#007AFF" },
+  global: { name: "全局", color: "#FF9500" }
+};
+const theme = themes[mode] || themes.rule;
 
-  $dashboard.setData({
-    title: style.title,
-    content: `下行: ${formatSpeed(traffic.down)}\n上行: ${formatSpeed(traffic.up)}\n节点: ${proxyName}`,
-    backgroundColor: style.color,
-    titleColor: "#FFFFFF",
-    contentColor: "#FFFFFF",
-    url: "egern://outbound-mode"
-  });
+// 渲染输出
+$widget.setContents({
+  title: `↓ ${speed(traffic.down)}  ↑ ${speed(traffic.up)}`,
+  content: `模式: ${theme.name}\n节点: ${proxy}`,
+  backgroundColor: theme.color,
+  titleColor: "#FFFFFF",
+  contentColor: "#FFFFFF",
+  // 点击跳转至模式切换
+  url: "egern://outbound-mode"
+});
 
-  $done();
-})();
+$done();
