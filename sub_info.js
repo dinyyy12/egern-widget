@@ -1,5 +1,5 @@
 /**
- * 📌 Egern 流量监控小组件 (绝对垂直居中 + 比例优化版)
+ * 📌 Egern 流量监控小组件 (强制物理居中 + 验真版)
  */
 export default async function (ctx) {
   const BG_COLORS = ['#0D0D1A', '#2D1B69'];
@@ -17,13 +17,16 @@ export default async function (ctx) {
   };
 
   let subUrl = "";
-  let subName = "流量监控";
+  // ✨ 验真标志：如果你在 App 模块参数里没有填 NAME，默认会显示这个带 Pro 的标题
+  let subName = "流量监控 Pro";
 
   for (let i = 1; i <= 10; i++) {
     const url = cleanVal(ctx.env[`URL${i}`], `订阅链接${i}`);
     if (/^https?:\/\//i.test(url)) {
       subUrl = url;
-      subName = cleanVal(ctx.env[`NAME${i}`], `机场${i}`) || subName;
+      // 如果你在模块里配了名字，我们加上 [Pro] 标记来验真
+      const envName = cleanVal(ctx.env[`NAME${i}`], `机场${i}`);
+      if (envName) subName = `${envName} Pro`;
       break;
     }
   }
@@ -62,7 +65,6 @@ export default async function (ctx) {
       errMsg = "获取失败";
     }
   } catch (e) {
-    // 拦截异常
   }
 
   const fmtSize = (bytes) => {
@@ -90,7 +92,7 @@ export default async function (ctx) {
     padding: 14, 
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
-      // === 模块 1: 顶部标题栏 ===
+      // --- 顶部：标题栏 ---
       {
         type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
@@ -101,14 +103,14 @@ export default async function (ctx) {
         ]
       },
       
-      // ✨ 上方弹簧 (1:1等分挤压中间包裹)
+      // ✨ 上方弹簧
       { type: "spacer" },
       
-      // === 模块 2: 中间核心包裹 (百分比 + 进度条打包) ===
+      // --- 中部：强制打包为一个整体区块 ---
       {
-        type: "stack", direction: "column", gap: 10, // 这里的 gap 控制数字和进度条的距离
+        type: "stack", direction: "column", gap: 12, // 内部间距死死锁住 12
         children: [
-          // 2.1 超大醒目的百分比数字
+          // 百分比
           {
             type: "stack", direction: "row", alignItems: "center",
             children: [
@@ -118,21 +120,25 @@ export default async function (ctx) {
               { type: "spacer" } 
             ]
           },
-          // 2.2 比例适中的横向进度条 (高度 10)
+          // 进度条 (高度12，圆角6)
           {
-            type: "stack", direction: "row", height: 10, cornerRadius: 5, backgroundColor: "rgba(255,255,255,0.1)",
+            type: "stack", direction: "row", height: 12, cornerRadius: 6, backgroundColor: "rgba(255,255,255,0.1)",
             children: [
-              { type: "stack", flex: filledFlex, height: 10, cornerRadius: 5, backgroundColor: barColor, children: [] },
-              { type: "stack", flex: emptyFlex, height: 10, backgroundColor: "#00000000", children: [] }
+              {
+                type: "stack", flex: filledFlex, height: 12, cornerRadius: 6, backgroundColor: barColor, children: []
+              },
+              {
+                type: "stack", flex: emptyFlex, height: 12, backgroundColor: "#00000000", children: []
+              }
             ]
           }
         ]
       },
 
-      // ✨ 下方弹簧 (1:1等分挤压中间包裹)
+      // ✨ 下方弹簧
       { type: "spacer" },
       
-      // === 模块 3: 底部具体数值与到期日 ===
+      // --- 底部：具体数值与到期日 ---
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
