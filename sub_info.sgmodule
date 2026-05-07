@@ -1,5 +1,8 @@
 name: 机场信息
 description: 机场订阅流量/有效期监控
+author: s486tt-ship-it
+homepage: https://github.com/s486tt-ship-it/Egern-Sub-Widget
+manual: https://github.com/s486tt-ship-it/Egern-Sub-Widget
 icon: chart.pie.fill
 
 compat_arguments:
