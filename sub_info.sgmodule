@@ -1,5 +1,5 @@
-name: sub_info
-description: 机场订阅流量小组件
+name: 机场信息
+description: 机场订阅流量/有效期监控
 icon: chart.pie.fill
 
 compat_arguments:
