@@ -1,0 +1,65 @@
+{
+  "colors" : {
+    "accent" : {
+      "dark" : "#FF9F0A",
+      "light" : "#FF9500"
+    },
+    "background" : {
+      "dark" : "#000000",
+      "light" : "#FFFFFF"
+    },
+    "blue" : {
+      "dark" : "#FFB340",
+      "light" : "#FFA01A"
+    },
+    "cyan" : {
+      "dark" : "#14C5E1",
+      "light" : "#07A4C3"
+    },
+    "green" : {
+      "dark" : "#22C68D",
+      "light" : "#0BA875"
+    },
+    "groupedBackground" : {
+      "dark" : "#000000",
+      "light" : "#F2F2F7"
+    },
+    "indigo" : {
+      "dark" : "#FF9F0A",
+      "light" : "#FF9500"
+    },
+    "orange" : {
+      "dark" : "#FA8329",
+      "light" : "#F26611"
+    },
+    "purple" : {
+      "dark" : "#9974F8",
+      "light" : "#844BF2"
+    },
+    "red" : {
+      "dark" : "#F85872",
+      "light" : "#EB2E53"
+    },
+    "secondaryGroupedBackground" : {
+      "dark" : "#1C1C1E",
+      "light" : "#FFFFFF"
+    },
+    "tabBarBackground" : {
+      "dark" : null,
+      "light" : null
+    },
+    "teal" : {
+      "dark" : "#21C6B3",
+      "light" : "#11A697"
+    },
+    "tertiaryGroupedBackground" : {
+      "dark" : "#2C2C2E",
+      "light" : "#F2F2F7"
+    },
+    "yellow" : {
+      "dark" : "#F8AE18",
+      "light" : "#E78B09"
+    }
+  },
+  "name" : "剔透渐变 - 活力橙"
+}
