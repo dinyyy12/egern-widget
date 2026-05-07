@@ -1,0 +1,8 @@
+scriptings:
+  - generic:
+      name: 网络控件
+      script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/refs/heads/main/egern_speed_control.js
+
+widgets:
+  - name: 网络控件
+    script_name: 网络控件
