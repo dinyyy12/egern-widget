@@ -1,8 +1,6 @@
-scriptings:
-  - generic:
-      name: 网络控件
-      script_url: https://raw.githubusercontent.com/dinyyy12/egern-widget/refs/heads/main/egern_speed_control.js
-
 widgets:
-  - name: 网络控件
-    script_name: 网络控件
+  items:
+    - type: script
+      title: "实时监控"
+      script-path: "https://raw.githubusercontent.com/dinyyy12/egern-widget/refs/heads/main/egern_speed_control.js"
+      update-interval: 5
