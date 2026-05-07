@@ -1,6 +1,5 @@
 /**
- * 📌 Egern 极简流量监控小组件 (Apple 存储风格进度条版)
- * 🚀 功能: 解决圆角渲染变方块的问题，提供原生般丝滑的横向进度条
+ * 📌 Egern 极简流量监控小组件 (横向进度条版 - 彻底告别方块)
  */
 export default async function (ctx) {
   // 1. 辅助函数：清理未填写的模板参数
@@ -84,7 +83,7 @@ export default async function (ctx) {
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
-          { type: "image", src: "sf-symbol:server.rack", color: themeColor, width: 14, height: 14 },
+          { type: "image", src: "sf-symbol:chart.pie.fill", color: themeColor, width: 14, height: 14 },
           { type: "spacer", length: 6 },
           { type: "text", text: subName, font: { size: 13, weight: "heavy" }, textColor: { light: "#1C1C1E", dark: "#FFFFFF" }, maxLines: 1 }
         ]
