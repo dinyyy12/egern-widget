@@ -1,26 +1,23 @@
 /**
- * 📌 Egern 流量监控小组件 (深度暗黑渐变 + 像素级统一UI版)
+ * 📌 Egern 流量监控小组件 (暗黑渐变安全修复版)
  */
 export default async function (ctx) {
-  // 1. 提取参考代码中的统一 UI 规范颜色
-  const BG_COLORS = [{ light: '#0D0D1A', dark: '#0D0D1A' }, { light: '#2D1B69', dark: '#2D1B69' }];
+  // 1. 安全的纯字符串渐变色 (修复引擎解析对象崩溃的问题)
+  const BG_COLORS = ['#0D0D1A', '#2D1B69'];
+  
   const C_TITLE = { light: '#FFD700', dark: '#FFD700' };
   const C_SUB = { light: '#A2A2B5', dark: '#A2A2B5' };
   const C_GREEN = { light: '#32D74B', dark: '#32D74B' };
   const C_MAIN = { light: '#FFFFFF', dark: '#FFFFFF' };
-  
-  // 进度条专属告警色
   const C_WARN = { light: '#FF9500', dark: '#FF9500' };
   const C_DANGER = { light: '#FF3B30', dark: '#FF3B30' };
 
-  // 2. 辅助函数：清理未填写的模板参数
   const cleanVal = (val, defaultStr) => {
     const text = String(val || "").trim();
     if (/^\{\{\{[^}]+\}\}\}$/.test(text) || text === defaultStr || text === "可选") return "";
     return text;
   };
 
-  // 3. 从模块环境变量中寻找第一个有效订阅
   let subUrl = "";
   let subName = "流量监控";
 
@@ -33,7 +30,6 @@ export default async function (ctx) {
     }
   }
 
-  // 4. 初始化数据
   let info = { used: 0, total: 0, ratio: 0, percent: "0%", expire: "--" };
   let isOk = false;
   let errMsg = "未配置链接";
@@ -71,41 +67,34 @@ export default async function (ctx) {
     // 拦截异常
   }
 
-  // 5. 数据格式化辅助函数
   const fmtGB = (bytes) => (bytes / (1024 ** 3)).toFixed(1) + " GB";
 
-  // 6. 动态颜色预警系统 (采用参考代码中的绿色作为健康基准)
   let barColor = C_GREEN; 
   if (info.ratio > 0.75) barColor = C_WARN; 
   if (info.ratio > 0.90) barColor = C_DANGER; 
   if (!isOk) barColor = C_SUB; 
 
-  // 7. 计算进度条比例
   const filledFlex = Math.max(1, Math.round(info.ratio * 100));
   const emptyFlex = Math.max(1, 100 - filledFlex);
 
-  // 8. 构建 UI 树
   return {
     type: "widget",
-    padding: 14, // 与参考代码一致的 14
-    // ✨ 核心：采用与参考代码完全一致的渐变背景
+    padding: 14, 
+    // ✨ 使用绝对安全的字符串数组渐变
     backgroundGradient: { type: 'linear', colors: BG_COLORS, startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } },
     children: [
-      // --- 顶部：标题栏 ---
       {
         type: "stack", direction: "row", alignItems: "center", gap: 6,
         children: [
           { type: "image", src: "sf-symbol:chart.pie.fill", color: C_TITLE, width: 16, height: 16 },
           { type: "text", text: subName, font: { size: 14, weight: "heavy" }, textColor: C_TITLE, maxLines: 1 },
           { type: "spacer" },
-          // 右上角点缀，与参考代码结构呼应
           { type: "text", text: "Subscription", font: { size: 9 }, textColor: "rgba(255,255,255,0.2)" }
         ]
       },
       
       { type: "spacer" },
       
-      // --- 中部：超大醒目的百分比数字 ---
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
@@ -118,8 +107,6 @@ export default async function (ctx) {
 
       { type: "spacer", length: 8 },
       
-      // --- 核心：横向进度条 ---
-      // 底色采用了半透明白，适配暗黑渐变背景
       {
         type: "stack", direction: "row", height: 8, cornerRadius: 4, backgroundColor: "rgba(255,255,255,0.1)",
         children: [
@@ -134,11 +121,9 @@ export default async function (ctx) {
 
       { type: "spacer", length: 8 },
       
-      // --- 底部：具体数值与到期日 ---
       {
         type: "stack", direction: "row", alignItems: "center",
         children: [
-          // ✨ 字号 11，等宽字体 Menlo，与参考代码完全一致
           { type: "text", text: isOk ? `${fmtGB(info.used)} / ${fmtGB(info.total)}` : errMsg, font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_MAIN },
           { type: "spacer" },
           { type: "text", text: isOk ? info.expire : "--", font: { size: 11, weight: "bold", family: "Menlo" }, textColor: C_SUB }
